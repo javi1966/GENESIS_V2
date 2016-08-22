@@ -9,6 +9,7 @@
 #include <xc.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 // CONFIG1
 #pragma config FEXTOSC = OFF    // FEXTOSC External Oscillator mode Selection bits->Oscillator not enabled
@@ -31,7 +32,7 @@
 
 // CONFIG3
 #pragma config WRT = OFF    // User NVM self-write protection bits->Write protection off
-#pragma config LVP = OFF    // Low Voltage Programming Enable bit->Low Voltage programming enabled. MCLR/VPP pin function is MCLR. MCLRE configuration bit is ignored.
+#pragma config LVP = ON    // Low Voltage Programming Enable bit->Low Voltage programming enabled. MCLR/VPP pin function is MCLR. MCLRE configuration bit is ignored.
 
 // CONFIG4
 #pragma config CP = OFF    // User NVM Program Memory Code Protection bit->User NVM code protection disabled
@@ -45,7 +46,7 @@ typedef unsigned char byte;
 #define LED LATCbits.LATC1
 
 #define CE11 LATCbits.LATC7
-#define CE11 LATCbits.LATC6
+#define CE12 LATCbits.LATC6
 #define A0 LATAbits.LATA5
 #define A1 LATAbits.LATA1
 #define A2 LATAbits.LATA2
@@ -79,6 +80,265 @@ typedef unsigned char byte;
 bool bLec5seg;
 bool bVis;
 
+//*********************************************************
+byte bcd2bin(byte BCD);
+byte bin2bcd(byte bin);
+void init_I2C();
+void start_I2C();
+void restart_I2C();
+void stop_I2C();
+void ack_I2C();
+void nack_I2C();
+byte read_I2C();
+byte write_I2C(byte dato);
+byte ackStatus_I2C();
+void idle_I2C();
+void initDS1307();
+void setDatoDS1307(byte dato,byte addr);
+byte getDatoDS1307(byte addr);
+void getHoraDS1307(byte hr,byte min,byte sec);
+void getDiaDS1307(byte dia,byte mes,byte anno,byte day);
+
+//*********************** PD3535 ************************************
+void initPD3535(byte modo){ 
+    
+    CE11=1;CE12=0;WR=0;
+    A2=0;
+    datoDisplay=modo;
+    WR=1;CE11=0;
+    
+    CE11=0;CE12=1;WR=0;
+    A2=0;
+    datoDisplay=modo;
+    WR=1;CE12=0;
+}
+//*****************************************************************
+void disChPD3535(char ch){
+    
+    static volatile byte pos=7;
+    static volatile byte iCh=0;
+    
+    switch(pos)
+    {
+        case 7:POS7;break;
+        case 6:POS6;break;
+        case 5:POS5;break;
+        case 4:POS4;break;
+        
+        default:break;
+    }  
+    
+    if(--pos < 4)
+        pos=7;
+    
+      if(iCh < 4)
+      {
+        CE11=1;CE12=0;WR=0;
+        datoDisplay=ch;
+        WR=1;CE11=0;
+      } 
+    else
+        {
+        CE11=0;CE12=1;WR=0;
+        datoDisplay=ch;
+        WR=1;CE12=0;
+        }
+    
+    if(++iCh > 7)
+        iCh=0;
+}
+
+//*******************************************************************************
+void printStrPD3535(char *str){
+    
+    int i;
+    
+    i=0;
+    while (*str){
+        
+        disChPD3535(*str++);
+        i++;
+    }
+}
+
+//********************** DS1307 ****************************************************
+ byte bcd2bin(byte BCD) {
+     
+     byte number;
+     
+     number=(BCD >> 4)*10;
+     number+=(BCD & 0x0F);
+     
+     return number;
+ }
+ 
+ byte bin2bcd(byte bin){
+     
+     byte bcd;
+     
+     bcd=(bin/10) << 4;
+     bcd += (bin%10);
+     
+     return bcd;
+ }
+ 
+ void init_I2C()
+ {
+     
+     //remapeo RC3->CLK ,RC4->data
+     PPSLOCK=0x55;
+     PPSLOCK=0xAA;
+     PPSLOCKbits.PPSLOCKED=0x00;
+     
+     SSP1CLKPPS =0x13; //RC3->SCL
+     RC3PPS=0x14;
+     RC4PPS=0x15;   //RC4-> SDA
+     SSP1DATPPS=0x14;
+     
+     PPSLOCK=0x55;
+     PPSLOCK=0xAA;
+     PPSLOCKbits.PPSLOCKED=0x01;
+     
+     SSP1STAT=0x80;
+     SSP1CON1=0x28;
+     SSP1CON3=0x00;
+     SSP1ADD=0x03;
+     SSP1BUF=0x00;
+     
+ }
+ 
+ void start_I2C(){
+     SSP1CON2bits.SEN =1;
+     while(SSP1CON2bits.SEN);
+     
+ }
+ 
+ void restart_I2C(){
+     
+     SSP1CON2bits.RSEN =1;
+     while(SSP1CON2bits.RSEN);
+ }
+ 
+ void stop_I2C(){
+     
+     SSP1CON2bits.PEN =1;
+     while(SSP1CON2bits.PEN);
+     
+ }
+ 
+ 
+ 
+ void ack_I2C(){
+     SSP1CON2bits.ACKDT=0;
+     SSP1CON2bits.ACKEN=1;
+     while(SSP1CON2bits.ACKEN);
+ }
+ byte ackStatus_I2C(){
+     
+    
+ }
+ 
+ void nack_I2C(){
+     
+     SSP1CON2bits.ACKDT=1;
+     SSP1CON2bits.ACKEN=1;
+     while(SSP1CON2bits.ACKEN);
+     SSP1CON2bits.ACKDT=0;
+ }
+ 
+ void idle_I2C(){
+     
+     while(SSP1STATbits.R_nW | SSP1CON2bits.SEN | SSP1CON2bits.RSEN 
+             |SSP1CON2bits.PEN | SSP1CON2bits.RCEN | SSP1CON2bits.ACKEN )
+     {};
+ }
+ 
+ byte write_I2C(byte dato){
+     
+     SSP1BUF=dato;
+     idle_I2C();
+     return (byte)(!SSP1CON2bits.ACKSTAT);
+     
+     
+ }
+ 
+ byte read_I2C(){
+     
+     SSP1CON2bits.RCEN=1;
+     while( SSP1CON2bits.RCEN);
+     return SSP1BUF;
+ } 
+ 
+ void initDS1307(){
+     byte sec;
+     
+         init_I2C();
+         sec=getDatoDS1307(0) & 0x7F;
+         setDatoDS1307(sec & 0x7F,0);
+         write_I2C(0xD0);
+         write_I2C(0x07);
+         write_I2C(0x80);
+         stop_I2C(); 
+ }
+ 
+ 
+ void setDatoDS1307(byte dato,byte addr){
+     
+     start_I2C();
+     write_I2C(0xD0);
+     write_I2C(addr);
+     write_I2C(bin2bcd(dato));
+     stop_I2C(); 
+ }
+ 
+ byte getDatoDS1307(byte addr){
+     
+     byte data;
+       
+          start_I2C();
+          write_I2C(0xD0);
+          write_I2C(addr);
+          start_I2C();
+          write_I2C(0xD1);
+          data=read_I2C(0);
+          stop_I2C();
+          
+          return data;
+ }
+ 
+ 
+ void getHoraDS1307(byte hr,byte min,byte sec)
+ {
+     
+          start_I2C();
+          write_I2C(0xD0);
+          write_I2C(0x00);
+          start_I2C();
+          write_I2C(0xD1);
+          sec=bcd2bin(read_I2C() & 0x7F);
+          min=bcd2bin(read_I2C() & 0x7F);
+          hr=bcd2bin(read_I2C() & 0x3F);
+          stop_I2C();
+ }
+ 
+ void getDiaDS1307(byte dia,byte mes,byte anno,byte day){
+     
+          start_I2C();
+          write_I2C(0xD0);
+          write_I2C(0x03);
+          start_I2C();
+          write_I2C(0xD1);
+          day=bcd2bin(read_I2C() & 0x07);
+          dia=bcd2bin(read_I2C() & 0x3F);
+          mes=bcd2bin(read_I2C() & 0x1F);
+          anno=bcd2bin(read_I2C() & 0x0F);
+          stop_I2C();
+     
+ }
+ 
+ //******************************************************************************************************
+
+
 void main(void) {
 
     int dato;
@@ -92,17 +352,20 @@ void main(void) {
 
 
 
-
+  
     // NOSC HFINTOSC with 2x PLL; NDIV 1; 
-    OSCCON1 = 0x00;
+    OSCCON1 = 0x60;
     // CSWHOLD may proceed; SOSCPWR Low power; SOSCBE crystal oscillator; 
     OSCCON3 = 0x00;
     // LFOEN disabled; ADOEN disabled; SOSCEN disabled; EXTOEN disabled; HFOEN disabled; 
     OSCEN = 0x00;
-    // HFFRQ0 16_MHz;
+    // HFFRQ0 32_MHz;
     OSCFRQ = 0x06;
+    //MFOR
+    OSCSTAT=0x00;
     // HFTUN 0; 
     OSCTUNE = 0x00;
+   
 
     LATA = 0B00000000;
     LATB = 0B00000000;
@@ -111,8 +374,8 @@ void main(void) {
     WPUB = 0B00000000;
     WPUC = 0B00000000;
     ANSELA = 0B11111111;
-    ANSELB = 0B00000000;
-    ANSELC = 0B00000000;
+    ANSELB = 0B11111111;
+    ANSELC = 0B11100001;
     TRISA = 0B00000000;
     TRISB = 0B00000000;
     TRISC = 0B00100001;
@@ -121,25 +384,42 @@ void main(void) {
   
     // Configura timer0 8192 us
     T0CON0 = 0x00;
-    T0CON0bits.T016BIT=1;
-    T0CON1bits.T0CKPS=0b1000; //256
-    T0CON1bits.T0CS=0b010;    //FOSC/4
     
-    T0CON0bits.T0EN = 1;
+    T0CON1bits.T0CKPS=0b1001; //512
+    T0CON1bits.T0CS=0b010;    //FOSC/4
+   // T0CON1=0x49;
+    //0,125 * 512=64us ,10000us/64 156->0x9B
+    TMR0H=0x9B;   //registro de periodo 10ms
     TMR0L=0;
-    TMR0H=0;
+    PIR0bits.TMR0IF = 0;
+    PIE0bits.TMR0IE = 1;
+    T0CON0bits.T0EN = 1;
+    
 
-    TMR0IF = 0;
-    TMR0IE = 1;
-
-  //********************************
+  //******************************************************************
 
 
     PEIE = 1;
     GIE = 1;
+    
+    
+    
+     initPD3535(CLEARDISPLAY);
+    __delay_ms(100);
+    initPD3535(BRI50);
+    printStrPD3535("@JEG2016");
+    
+    __delay_ms(1000);
+   
 
 
     while (1) {
+        
+       /* 
+        LATCbits.LATC2=0;
+        __delay_ms(500);
+        LATCbits.LATC2=1;
+        __delay_ms(500);*/
 
 
     }//while
@@ -151,24 +431,24 @@ void main(void) {
 
 void interrupt INTERRUPT_InterruptManager(void) {
     
-    static byte lTemp=0;
-    static byte lLec=0;
+    static volatile byte lTemp=0;
+    static volatile uint16_t lLec=0;
     
-    if (TMR0IE && TMR0IF) {
+    if (PIR0bits.TMR0IF && PIE0bits.TMR0IE) { //cada 10ms
         
-        if(++lTemp > 3){
+        if(++lTemp > 30){
             bVis=true;
             lTemp=0;
         }
         
-        if(++lLec > 125)
+        if(++lLec >= 500)  // 10ms 500 5 seg
         {
             LED ^= 1;
             
             bLec5seg=true;
             lLec=0;
         }    
-      TMR0IF=1;
+      PIR0bits.TMR0IF=0;
     } 
     
 }  
