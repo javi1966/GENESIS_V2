@@ -6,10 +6,7 @@
  */
 
 
-#include <xc.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
+#include "main.h"
 
 // CONFIG1
 #pragma config FEXTOSC = OFF    // FEXTOSC External Oscillator mode Selection bits->Oscillator not enabled
@@ -39,65 +36,10 @@
 #pragma config CPD = OFF    // Data NVM Memory Code Protection bit->Data NVM code protection disabled
 
 
-#define _XTAL_FREQ 32000000   // 0,125 us
-
-typedef unsigned char byte;
-
-#define LED LATCbits.LATC1
-
-#define CE11 LATCbits.LATC7
-#define CE12 LATCbits.LATC6
-#define A0 LATAbits.LATA5
-#define A1 LATAbits.LATA1
-#define A2 LATAbits.LATA2
-#define WR LATAbits.LATA3
-
-#define datoDisplay LATB
-#define DQ18B20    LATCbits.LATC0
-
-
-
-//comandos diplay PD3535
-#define CLEARDISPLAY  0x80
-#define LAMPTEST      0x40
-#define BLINK         0x20
-#define ATRIBUTOS     0x10
-#define CURSORON      0x00
-#define BLINKCARACTER 0x01
-#define CURSORPARPA   0x02
-#define CARACURSOR    0x03
-#define BLANCO        0x00
-#define BRI25         0x01
-#define BRI50         0x02
-#define BRI100        0x03
-
-#define POS4 A2=1;A1=0;A0=0;
-#define POS5 A2=1;A1=0;A0=1;
-#define POS6 A2=1;A1=1;A0=0;
-#define POS7 A2=1;A1=1;A0=1;
-
 
 bool bLec5seg;
 bool bVis;
 
-//*********************************************************
-byte bcd2bin(byte BCD);
-byte bin2bcd(byte bin);
-void init_I2C();
-void start_I2C();
-void restart_I2C();
-void stop_I2C();
-void ack_I2C();
-void nack_I2C();
-byte read_I2C();
-byte write_I2C(byte dato);
-byte ackStatus_I2C();
-void idle_I2C();
-void initDS1307();
-void setDatoDS1307(byte dato,byte addr);
-byte getDatoDS1307(byte addr);
-void getHoraDS1307(byte hr,byte min,byte sec);
-void getDiaDS1307(byte dia,byte mes,byte anno,byte day);
 
 //*********************** PD3535 ************************************
 void initPD3535(byte modo){ 
@@ -120,10 +62,14 @@ void disChPD3535(char ch){
     
     switch(pos)
     {
-        case 7:POS7;break;
-        case 6:POS6;break;
-        case 5:POS5;break;
-        case 4:POS4;break;
+        case 7:POS7;
+               break;
+        case 6:POS6;
+               break;
+        case 5:POS5;
+               break;
+        case 4:POS4;
+               break;
         
         default:break;
     }  
@@ -160,6 +106,7 @@ void printStrPD3535(char *str){
         i++;
     }
 }
+
 
 //********************** DS1307 ****************************************************
  byte bcd2bin(byte BCD) {
@@ -300,7 +247,7 @@ void printStrPD3535(char *str){
           write_I2C(addr);
           start_I2C();
           write_I2C(0xD1);
-          data=read_I2C(0);
+          data=read_I2C();
           stop_I2C();
           
           return data;
@@ -336,9 +283,9 @@ void printStrPD3535(char *str){
      
  }
  
+ 
+ 
  //******************************************************************************************************
-
-
 void main(void) {
 
     int dato;
@@ -403,8 +350,8 @@ void main(void) {
     GIE = 1;
     
     
-    
-     initPD3535(CLEARDISPLAY);
+    initDS1307();
+    initPD3535(CLEARDISPLAY);
     __delay_ms(100);
     initPD3535(BRI50);
     printStrPD3535("@JEG2016");
