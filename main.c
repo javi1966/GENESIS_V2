@@ -36,7 +36,8 @@
 #pragma config CPD = OFF    // Data NVM Memory Code Protection bit->Data NVM code protection disabled
 
 
-
+byte hora, minu, seg;
+byte dia, mes, anno, day;
 bool bLec5seg;
 bool bVis;
 
@@ -109,6 +110,8 @@ void printStrPD3535(char *str){
 
 
 //********************** DS1307 ****************************************************
+
+
  byte bcd2bin(byte BCD) {
      
      byte number;
@@ -128,6 +131,7 @@ void printStrPD3535(char *str){
      
      return bcd;
  }
+ 
  
  void init_I2C()
  {
@@ -254,7 +258,7 @@ void printStrPD3535(char *str){
  }
  
  
- void getHoraDS1307(byte hr,byte min,byte sec)
+ void getHoraDS1307()
  {
      
           start_I2C();
@@ -262,13 +266,13 @@ void printStrPD3535(char *str){
           write_I2C(0x00);
           start_I2C();
           write_I2C(0xD1);
-          sec=bcd2bin(read_I2C() & 0x7F);
-          min=bcd2bin(read_I2C() & 0x7F);
-          hr=bcd2bin(read_I2C() & 0x3F);
+          seg=bcd2bin(read_I2C() & 0x7F);
+          minu=bcd2bin(read_I2C() & 0x7F);
+          hora=bcd2bin(read_I2C() & 0x3F);
           stop_I2C();
  }
  
- void getDiaDS1307(byte dia,byte mes,byte anno,byte day){
+ void getDiaDS1307(){
      
           start_I2C();
           write_I2C(0xD0);
@@ -294,8 +298,7 @@ void main(void) {
     int iTarea = 0;
     char *s;
 
-    byte hora, minu, seg;
-    byte dia, mes, anno, day;
+   
 
 
 
@@ -351,6 +354,12 @@ void main(void) {
     
     
     initDS1307();
+    
+    hora=0;
+    setDatoDS1307(hora & 0x3F,HORAS);
+    __delay_ms(100);
+    getHoraDS1307();
+    dato=hora;
     initPD3535(CLEARDISPLAY);
     __delay_ms(100);
     initPD3535(BRI50);

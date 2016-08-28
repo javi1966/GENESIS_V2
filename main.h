@@ -73,7 +73,18 @@ typedef unsigned char byte;
 #define POS6 A2=1;A1=1;A0=0;
 #define POS7 A2=1;A1=1;A0=1;
 
+
+#define SEGUNDOS 0
+#define MINUTOS  1
+#define HORAS    2
+#define SEMDIA   3
+#define DIAS     4
+#define MESES    5
+#define ANNOS    6
+
+
 //*********************************************************
+
 byte bcd2bin(byte BCD);
 byte bin2bcd(byte bin);
 void init_I2C();
@@ -89,8 +100,8 @@ void idle_I2C();
 void initDS1307();
 void setDatoDS1307(byte dato,byte addr);
 byte getDatoDS1307(byte addr);
-void getHoraDS1307(byte hr,byte min,byte sec);
-void getDiaDS1307(byte dia,byte mes,byte anno,byte day);
+void getHoraDS1307();
+void getDiaDS1307();
 void initPD3535(byte modo);
 void disChPD3535(char ch);
 void printStrPD3535(char *str);
