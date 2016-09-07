@@ -35,6 +35,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #define _XTAL_FREQ 32000000   // 0,125 us
 
@@ -102,8 +103,9 @@ void setDatoDS1307(byte dato,byte addr);
 byte getDatoDS1307(byte addr);
 void getHoraDS1307();
 void getDiaDS1307();
+char * getDiaSemana(byte num);
 void initPD3535(byte modo);
-void disChPD3535(char ch);
+void disChPD3535(char ch,int,int);
 void printStrPD3535(char *str);
 
 
