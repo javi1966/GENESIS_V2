@@ -41,6 +41,8 @@ byte dia, mes, anno, day;
 bool bLec5seg;
 bool bVis;
 
+char buff[8];
+
 
 //*********************** PD3535 ************************************
 void initPD3535(byte modo){ 
@@ -56,11 +58,9 @@ void initPD3535(byte modo){
     WR=1;CE12=0;
 }
 //*****************************************************************
-void disChPD3535(char ch){
+void disChPD3535(char ch,int pos,int iCh){
     
-    static volatile byte pos=7;
-    static volatile byte iCh=0;
-    
+   
     switch(pos)
     {
         case 7:POS7;
@@ -75,8 +75,7 @@ void disChPD3535(char ch){
         default:break;
     }  
     
-    if(--pos < 4)
-        pos=7;
+   
     
       if(iCh < 4)
       {
@@ -91,20 +90,22 @@ void disChPD3535(char ch){
         WR=1;CE12=0;
         }
     
-    if(++iCh > 7)
-        iCh=0;
+  
 }
 
 //*******************************************************************************
 void printStrPD3535(char *str){
     
-    int i;
+    int i=7,j=0;  //i digito MSB,j display MSB
     
-    i=0;
+   
     while (*str){
         
-        disChPD3535(*str++);
-        i++;
+        disChPD3535(*str++,i,j);
+        if(--i < 4) //digito 7..4
+           i=7;
+         if(++j > 7)  //cifra entre displays
+            j=0;
     }
 }
 
@@ -135,8 +136,11 @@ void printStrPD3535(char *str){
  
  void init_I2C()
  {
-     
+     TRISCbits.TRISC3=1;
+     TRISCbits.TRISC4=1;
      //remapeo RC3->CLK ,RC4->data
+     bool state = GIE;
+     GIE = 0;
      PPSLOCK=0x55;
      PPSLOCK=0xAA;
      PPSLOCKbits.PPSLOCKED=0x00;
@@ -150,10 +154,12 @@ void printStrPD3535(char *str){
      PPSLOCK=0xAA;
      PPSLOCKbits.PPSLOCKED=0x01;
      
+     GIE = state;
+     
      SSP1STAT=0x80;
      SSP1CON1=0x28;
      SSP1CON3=0x00;
-     SSP1ADD=0x03;
+     SSP1ADD=0x4F;
      SSP1BUF=0x00;
      
  }
@@ -186,7 +192,7 @@ void printStrPD3535(char *str){
  }
  byte ackStatus_I2C(){
      
-    
+     return 0;
  }
  
  void nack_I2C(){
@@ -287,20 +293,88 @@ void printStrPD3535(char *str){
      
  }
  
+ char * getDiaSemana(byte num){
+     
+     char str[2];
+     
+     switch(num){
+         
+         case 1:strcpy(str,"Lu");
+                break;
+         case 2:strcpy(str,"Ma");
+                break;
+         case 3:strcpy(str,"Mi");
+                break;
+         case 4:strcpy(str,"Ju");
+                break;
+         case 5:strcpy(str,"Vi");
+                break;
+         case 6:strcpy(str,"Sa");
+                break;
+         case 7:strcpy(str,"Do");
+                break;       
+                
+         default:
+             break;
+         
+     }
+     return (str);
+ }
+ 
+ void ponDia(byte dia){
+   
+   
+   setDatoDS1307(dia,DIAS);
+   sprintf(buff,"DIA: %02u",dia);
+   printStrPD3535(buff);
+     
+ }
+ 
+ void ponMes(byte mes){
+     
+     
+     setDatoDS1307(mes,MESES);
+     sprintf(buff,"MES:  %02u",mes);
+     printStrPD3535(buff);
+     
+ }
+ 
+ void ponAnno(byte anno){
+    
+     
+     setDatoDS1307(mes,MESES);
+     sprintf(buff,"ANNO: %02u",anno);
+     printStrPD3535(buff);
+     
+ }
+ 
+ void ponHora(byte hora){
+     
+     setDatoDS1307(hora & 0x3F,HORAS);
+     sprintf(buff,"HORA: %02u",hora);
+     printStrPD3535(buff);
+     
+ }
+ 
+ void ponMinuto(byte minu){
+     
+     setDatoDS1307(minu & 0x7F,MINUTOS);
+     sprintf(buff,"MINU: %02u",minu);
+     printStrPD3535(buff);
+     
+ }
+  
  
  
  //******************************************************************************************************
 void main(void) {
 
     int dato;
-    float fTemperatura;
+    float fTemperatura = 25.0;
     byte szGrado = 0x1B;
     int iTarea = 0;
     char *s;
-
-   
-
-
+    char buffer[8];
 
   
     // NOSC HFINTOSC with 2x PLL; NDIV 1; 
@@ -325,10 +399,10 @@ void main(void) {
     WPUC = 0B00000000;
     ANSELA = 0B11111111;
     ANSELB = 0B11111111;
-    ANSELC = 0B11100001;
+    ANSELC = 0B00100001;
     TRISA = 0B00000000;
     TRISB = 0B00000000;
-    TRISC = 0B00100001;
+    TRISC = 0B00101101;
 
     LED = 1;
   
@@ -354,28 +428,61 @@ void main(void) {
     
     
     initDS1307();
-    
-    hora=0;
-    setDatoDS1307(hora & 0x3F,HORAS);
-    __delay_ms(100);
-    getHoraDS1307();
-    dato=hora;
     initPD3535(CLEARDISPLAY);
     __delay_ms(100);
     initPD3535(BRI50);
     printStrPD3535("@JEG2016");
     
-    __delay_ms(1000);
+    
+    __delay_ms(2000);
+    
+     ponHora(13);
+     ponMinuto(20);
+      
+     ponDia(5);
+     ponMes(9);
+     ponAnno(16);
+    
+    
    
-
-
     while (1) {
         
-       /* 
-        LATCbits.LATC2=0;
-        __delay_ms(500);
-        LATCbits.LATC2=1;
-        __delay_ms(500);*/
+       
+        if(bVis){
+          
+            switch(iTarea){
+                
+                case 0: getDiaDS1307();
+                        s=getDiaSemana(day);
+                        sprintf(buffer,"%c%c %02u/%02u",s[0],s[1],dia,mes);
+                        printStrPD3535(buffer);
+                        break;
+                case 1: getHoraDS1307();
+                        sprintf(buffer,"%02u:%02u:%02u",hora,minu,seg);
+                        printStrPD3535(buffer);
+                        break;
+                case 2: sprintf(buffer," %2.2f%c ",fTemperatura,szGrado);
+                        printStrPD3535(buffer);
+                        break;
+                        
+                default:break;
+            }
+            
+            bVis=false;
+            
+            
+        }
+        
+        
+        if(bLec5seg){
+            
+            
+            //fTemperatura=leeTempDS18B20(10);
+            if(++iTarea >2)
+                iTarea=0;
+            bLec5seg=false;
+        }
+       
 
 
     }//while
