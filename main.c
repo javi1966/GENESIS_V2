@@ -35,8 +35,10 @@
 #pragma config CP = OFF    // User NVM Program Memory Code Protection bit->User NVM code protection disabled
 #pragma config CPD = OFF    // Data NVM Memory Code Protection bit->Data NVM code protection disabled
 
+#define _XTAL_FREQ 32000000   // 0,125 us
 
-byte hora, minu, seg;
+
+int hora, minu, seg;
 byte dia, mes, anno, day;
 bool bLec5seg;
 bool bVis;
@@ -227,6 +229,7 @@ void printStrPD3535(char *str){
  } 
  
  void initDS1307(){
+     
      byte sec;
      
          init_I2C();
@@ -273,8 +276,12 @@ void printStrPD3535(char *str){
           start_I2C();
           write_I2C(0xD1);
           seg=bcd2bin(read_I2C() & 0x7F);
+          ack_I2C();
           minu=bcd2bin(read_I2C() & 0x7F);
+          ack_I2C();
           hora=bcd2bin(read_I2C() & 0x3F);
+         
+          nack_I2C(); 
           stop_I2C();
  }
  
@@ -286,9 +293,13 @@ void printStrPD3535(char *str){
           start_I2C();
           write_I2C(0xD1);
           day=bcd2bin(read_I2C() & 0x07);
+          ack_I2C();
           dia=bcd2bin(read_I2C() & 0x3F);
+          ack_I2C();
           mes=bcd2bin(read_I2C() & 0x1F);
+          ack_I2C();
           anno=bcd2bin(read_I2C() & 0x0F);
+          nack_I2C();
           stop_I2C();
      
  }
@@ -321,7 +332,15 @@ void printStrPD3535(char *str){
      return (str);
  }
  
- void ponDia(byte dia){
+ void ponDay(int day)
+ {
+   setDatoDS1307(day,SEMDIA);
+   sprintf(buff,"DIA: %02u",day);
+   printStrPD3535(buff); 
+     
+ }
+ 
+ void ponDia(int dia){
    
    
    setDatoDS1307(dia,DIAS);
@@ -330,7 +349,7 @@ void printStrPD3535(char *str){
      
  }
  
- void ponMes(byte mes){
+ void ponMes(int mes){
      
      
      setDatoDS1307(mes,MESES);
@@ -339,16 +358,16 @@ void printStrPD3535(char *str){
      
  }
  
- void ponAnno(byte anno){
+ void ponAnno(int anno){
     
      
-     setDatoDS1307(mes,MESES);
+     setDatoDS1307(anno,ANNOS);
      sprintf(buff,"ANNO: %02u",anno);
      printStrPD3535(buff);
      
  }
  
- void ponHora(byte hora){
+ void ponHora(int hora){
      
      setDatoDS1307(hora & 0x3F,HORAS);
      sprintf(buff,"HORA: %02u",hora);
@@ -356,12 +375,192 @@ void printStrPD3535(char *str){
      
  }
  
- void ponMinuto(byte minu){
+ void ponMinuto(int minu){
      
      setDatoDS1307(minu & 0x7F,MINUTOS);
      sprintf(buff,"MINU: %02u",minu);
      printStrPD3535(buff);
      
+ }
+ //**************** DS18B20 ***********************************
+ short int initErrDS18B20()
+ {
+     
+     
+     TRIS_DQ18B20= 0;
+     DQ18B20 = 0;
+     __delay_us(500);
+    
+     TRIS_DQ18B20= 1;
+     __delay_us(5);
+     
+     if(  DQ18B20 == 0)
+         return 0;
+     
+     __delay_us(80);
+     
+     if(DQ18B20 == 1)
+         return 0;
+     
+    
+     
+      __delay_us(420);
+      
+      TRIS_DQ18B20= 1;
+      return 1;
+     
+     
+   
+ }
+ 
+ void initDS18B20(){
+     
+     TRIS_DQ18B20=0;
+     DQ18B20 = 0;
+     __delay_us(500);
+     TRIS_DQ18B20=1;
+     __delay_us(80);
+     __delay_us(420);
+     TRIS_DQ18B20=1;
+ }
+ 
+ void enviaDS18B20(int dato)
+ {
+     byte cnt,d;
+     
+     for(cnt=0;cnt<8;++cnt){
+         
+         d= dato & 0x01;
+        
+         TRIS_DQ18B20=0;
+         DQ18B20=0;
+         __delay_us(2);
+         DQ18B20=d;
+         __delay_us(60);
+         TRIS_DQ18B20=1;
+         __delay_us(2); 
+         dato = dato >> 1 ;
+     }
+     
+ }
+ 
+ byte leeDS18B20(){
+     
+     byte cnt,dato=0;
+     byte d;
+     
+     for(cnt=0;cnt<8;++cnt){
+         
+         
+    
+         TRIS_DQ18B20=0;
+         DQ18B20=0;
+         __delay_us(2);
+         TRIS_DQ18B20=1;
+         __delay_us(8); 
+         d=DQ18B20;
+         dato >>= 1;      
+         if(d)
+             dato |= 0x80;
+         
+         
+         __delay_us(120); 
+       
+     }
+     
+     return dato;
+ }
+ 
+ byte leeRAMDS18B20(int pos){
+   
+   byte dato[9];
+   
+   if(pos > 8)
+       return 0;
+   
+   initDS18B20();
+   enviaDS18B20(0xCC);
+   enviaDS18B20(0xBE);
+   
+   dato[0]=leeDS18B20();  //Temp. LSB
+   dato[1]=leeDS18B20();  //Temp. MSB 
+   dato[2]=leeDS18B20();  //TH limit
+   dato[3]=leeDS18B20();  //TL limit
+   dato[4]=leeDS18B20();  //CONFIG
+   dato[5]=leeDS18B20();  //RES 0
+   dato[6]=leeDS18B20();  //RES 1
+   dato[7]=leeDS18B20();  //RES 2
+   dato[8]=leeDS18B20();  //CRC
+   
+   
+    return dato[pos]; 
+     
+ }
+ 
+ int ponresDS18B20(byte res){
+     
+     byte cfg;
+     
+     if((res <9 ) || (res > 12))
+         res=9;
+     
+     cfg=((res-9) << 5);
+     
+     if(!initErrDS18B20())
+         return 99;
+     
+     enviaDS18B20(0xCC);
+     enviaDS18B20(0x4E);
+     enviaDS18B20(0b01111101);
+     enviaDS18B20(0b11001001);
+     enviaDS18B20(cfg);
+     
+     initDS18B20();
+     enviaDS18B20(0xCC);
+     enviaDS18B20(0x48);
+     __delay_ms(15);
+     
+     return ((leeRAMDS18B20(4) & 0b01100000) >> 5);
+     
+ }
+ 
+ float leeTempDS18B20(byte Resol){
+     
+     byte iTempLSB,iTempMSB,iConfig,iDly;
+     
+     long lTemperatura;
+     float fTemperatura;
+     
+     iConfig=ponresDS18B20(Resol);
+     //iConfig = ((leeRAMDS18B20(4) & 0b01100000) >> 5);
+     
+     if(!initErrDS18B20())
+         return 99;
+     
+     enviaDS18B20(0xCC);
+     enviaDS18B20(0x44);
+     
+     iDly=1<<iConfig;   //retardo medida segun resolucion
+     
+     while(iDly--)
+         __delay_ms(100);
+     
+    
+     
+     iTempLSB=leeRAMDS18B20(0);
+     iTempMSB=leeRAMDS18B20(1);
+     
+     lTemperatura=MAKE16(iTempMSB,iTempLSB);
+    
+     fTemperatura=0.0;
+     fTemperatura=(lTemperatura >> 4) & 0x00FF;
+     
+     if(lTemperatura & 0x0001) fTemperatura +=0.06250;
+     if(lTemperatura & 0x0002) fTemperatura +=0.12500;
+     if(lTemperatura & 0x0004) fTemperatura +=0.25000;
+     if(lTemperatura & 0x0008) fTemperatura +=0.50000;
+     
+     return fTemperatura;
  }
   
  
@@ -370,7 +569,7 @@ void printStrPD3535(char *str){
 void main(void) {
 
     int dato;
-    float fTemperatura = 25.0;
+    float fTemperatura ;
     byte szGrado = 0x1B;
     int iTarea = 0;
     char *s;
@@ -397,9 +596,9 @@ void main(void) {
     WPUA = 0B00000000;
     WPUB = 0B00000000;
     WPUC = 0B00000000;
-    ANSELA = 0B11111111;
+    ANSELA = 0B10111111;
     ANSELB = 0B11111111;
-    ANSELC = 0B00100001;
+    ANSELC = 0B00100000;
     TRISA = 0B00000000;
     TRISB = 0B00000000;
     TRISC = 0B00101101;
@@ -432,18 +631,21 @@ void main(void) {
     __delay_ms(100);
     initPD3535(BRI50);
     printStrPD3535("@JEG2016");
+    fTemperatura=leeTempDS18B20(10);
     
     
-    __delay_ms(2000);
+  
     
-     ponHora(13);
-     ponMinuto(20);
-      
-     ponDia(5);
+     ponHora(12);
+     ponMinuto(56);
+     
+     
+     ponDay(7); 
+     ponDia(11);
      ponMes(9);
      ponAnno(16);
     
-    
+      __delay_ms(2000);
    
     while (1) {
         
@@ -469,15 +671,14 @@ void main(void) {
             }
             
             bVis=false;
-            
-            
+           
         }
         
         
         if(bLec5seg){
             
             
-            //fTemperatura=leeTempDS18B20(10);
+            fTemperatura=leeTempDS18B20(10);
             if(++iTarea >2)
                 iTarea=0;
             bLec5seg=false;

@@ -37,7 +37,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define _XTAL_FREQ 32000000   // 0,125 us
+
 
 typedef unsigned char byte;
 
@@ -51,8 +51,9 @@ typedef unsigned char byte;
 #define WR   LATAbits.LATA3
 
 #define datoDisplay LATB
-#define DQ18B20     LATCbits.LATC0
 
+#define DQ18B20       PORTCbits.RC0
+#define TRIS_DQ18B20  TRISCbits.TRISC0
 
 
 //comandos diplay PD3535
@@ -83,6 +84,8 @@ typedef unsigned char byte;
 #define MESES    5
 #define ANNOS    6
 
+#define MAKE16(x,y) (((((unsigned int)x)<<8)) | ((unsigned int)y))
+
 
 //*********************************************************
 
@@ -107,6 +110,13 @@ char * getDiaSemana(byte num);
 void initPD3535(byte modo);
 void disChPD3535(char ch,int,int);
 void printStrPD3535(char *str);
+short int initErrDS18B20();
+void initDS18B20();
+void enviaDS18B20(int dato);
+byte leeDS18B20();
+byte leeRAMDS18B20(int);
+int  ponresDS18B20(byte res);
+float leeTempDS18B20(byte Resol);
 
 
 
