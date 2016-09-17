@@ -55,6 +55,10 @@ typedef unsigned char byte;
 #define DQ18B20       PORTCbits.RC0
 #define TRIS_DQ18B20  TRISCbits.TRISC0
 
+#define BTN_UP        PORTAbits.RA0
+#define BTN_MD        PORTAbits.RA4
+#define BTN_DW        PORTAbits.RA7 
+
 
 //comandos diplay PD3535
 #define CLEARDISPLAY  0x80
