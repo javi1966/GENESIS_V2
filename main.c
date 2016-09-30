@@ -38,7 +38,8 @@
 #define _XTAL_FREQ 32000000   // 0,125 us
 
 
-int hora , minu , seg;
+int hora , minu;
+byte seg;
 byte dia, mes,day;
 byte anno ;
 bool bLec5seg;
@@ -239,15 +240,37 @@ byte read_I2C() {
 
 void initDS1307() {
 
-    byte sec;
+    byte sec = 0;
 
     init_I2C();
-    sec = getDatoDS1307(0) & 0x7F;
+    
+    start_I2C();
+    write_I2C(0xD0);      // WR to RTC
+    write_I2C(0x00);      // REG 0
+    start_I2C();
+    write_I2C(0xD1);      // RD from RTC
+    sec = bcd2bin(read_I2C(0)); // Read current "seconds" in DS1307
+    stop_I2C();
+    sec &= 0x7F;
+
+    __delay_us(3);
+
+   start_I2C();
+   write_I2C(0xD0);      // WR to RTC
+   write_I2C(0x00);      // REG 0
+   write_I2C(bin2bcd(sec));     // Start oscillator with current "seconds value
+   start_I2C();
+   write_I2C(0xD0);      // WR to RTC
+   write_I2C(0x07);      // Control Register
+   write_I2C(0x80);     // Disable squarewave output pin
+   stop_I2C(); 
+   /* sec = getDatoDS1307(0) & 0x7F;
+    __delay_us(3); 
     setDatoDS1307(sec & 0x7F, 0);
     write_I2C(0xD0);
     write_I2C(0x07);
     write_I2C(0x80);
-    stop_I2C();
+    stop_I2C();*/
 }
 
 void setDatoDS1307(byte dato, byte addr) {
@@ -304,7 +327,7 @@ void getDiaDS1307() {
     ack_I2C();
     mes = bcd2bin(read_I2C() & 0x1F);
     ack_I2C();
-    anno = bcd2bin(read_I2C() & 0x0F);
+    anno = bcd2bin(read_I2C() & 0x1F);
     nack_I2C();
     stop_I2C();
 
@@ -573,8 +596,8 @@ float leeTempDS18B20(byte Resol) {
 
 void main(void) {
 
-    int dato;
-    int modo = 0;
+   
+    byte modo = 0;
     bool bProg=false;
     
     float fTemperatura;
@@ -641,10 +664,6 @@ void main(void) {
     printStrPD3535("@JEG2016");
     fTemperatura = leeTempDS18B20(10);
 
-
-
-
-   
     __delay_ms(2000);
 
     while (1) {
@@ -654,11 +673,11 @@ void main(void) {
 
             __delay_ms(100);
             if (!BTN_MD) {
-               
-                if (++modo > 7) {
+              
+                if (++modo > 7) 
                     modo = 0;
                     
-                }
+                
                 PIE0bits.TMR0IE = 0; 
                 bProg=true;  
              
@@ -705,6 +724,7 @@ void main(void) {
           while(!BTN_UP){};  
         }
 
+        //Boton -
         if (!BTN_DW) {
             __delay_ms(100);
             if (!BTN_DW) {
@@ -747,9 +767,8 @@ void main(void) {
         if(bProg){
                 switch (modo) {
                     
-                    case 0:break;
-
-                    
+                    case 0:printStrPD3535("<<PROG>>");
+                           break;
                     case 1:sprintf(buff, "HORA: %02u", hora);
                            break;
                     case 2:sprintf(buff, "MINU: %02u", minu);
@@ -765,16 +784,18 @@ void main(void) {
                            break; 
                            
                     case 7:
-                           sprintf(buff, "<<PROG>>");
-                           __delay_ms(1500);
+                           printStrPD3535("<<PROG>>");
+                            __delay_ms(1500);
+                           modo=0; 
                            PIE0bits.TMR0IE = 1;
                            bProg=false;
-                           
+                          
                            break;      
                            
                     default:
                         break;
                 }
+                
           printStrPD3535(buff);
           
           __delay_ms(100);
