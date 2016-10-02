@@ -671,7 +671,7 @@ void main(void) {
         //boton modo
         if (!BTN_MD) {
 
-            __delay_ms(100);
+            __delay_ms(70);
             if (!BTN_MD) {
               
                 if (++modo > 7) 
@@ -688,7 +688,7 @@ void main(void) {
 
         //Boton +
         if (!BTN_UP) {
-            __delay_ms(100);
+            __delay_ms(70);
             if (!BTN_UP) {
 
                 switch (modo) {
@@ -726,7 +726,7 @@ void main(void) {
 
         //Boton -
         if (!BTN_DW) {
-            __delay_ms(100);
+            __delay_ms(70);
             if (!BTN_DW) {
                 switch (modo) {
                     case 0: break;
